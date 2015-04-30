@@ -2,6 +2,8 @@ from pyPdf import PdfFileReader  # python-pypdf
 from PythonMagick import *  # python-pythonmagick
 import pygame, tempfile
 import yaml
+import argparse
+import os
 
 DENSITY = 200
 W = 800
@@ -27,49 +29,60 @@ class Answers:
         self.pimage = pygame.image.load(temp.name)
         temp.close()
         
+    def draw(self, screen, C):
+        pygame.draw.rect(screen, (255, 255, 255), (0, 0, W, H), 0)
+        
+        scaled = self.pimage
+        screen.blit(scaled, (0, 0), ( C[0], C[1], C[2]-C[0], C[3]-C[1]))
+        pygame.display.flip()
+        
         
 
+
+parser = argparse.ArgumentParser(description='Answer Sheet Reader')
+parser.add_argument('pdf_files', nargs='+')
+
+args = parser.parse_args()
+
 coords = yaml.load(open('coords.yaml'))
-    
-import sys, os.path
-A = load_answers(sys.argv[1])
-
-pygame.init()
+pygame.init()    
 screen = pygame.display.set_mode((W, H))
-
-dfilename = sys.argv[1] + '.yaml'
-if os.path.exists( dfilename ):
-    DATA = yaml.load(open(dfilename))
-else:
-    DATA = []
-    for i in range(len(A)):
-        DATA.append({})
 
 quit = False
 prev = None
-for m in coords:
-    key = m['name']
-    C = m['coords']
-    
-    for i, p in enumerate(A):
-        if key in DATA[i]:
-            continue
-        pygame.draw.rect(screen, (255, 255, 255), (0, 0, W, H), 0)
-        
-        scaled = p.pimage
-        screen.blit(scaled, (0, 0), ( C[0], C[1], C[2]-C[0], C[3]-C[1]))
-        pygame.display.flip()
-        x = raw_input(key + '? ')
-        if x == 'q' or x=='Q':
-            quit = True
-            break
-        elif x=='l':
-            x = prev
-        elif x=='?':
-            continue
-        DATA[i][key] = x
-        prev = x
-    if quit:
-        break
 
-yaml.dump(DATA, open(dfilename, 'w'))
+
+for fn in args.pdf_files:
+    A = load_answers(fn)
+
+    dfilename = fn + '.yaml'
+    if os.path.exists( dfilename ):
+        DATA = yaml.load(open(dfilename))
+    else:
+        DATA = []
+        for i in range(len(A)):
+            DATA.append({})
+
+    for m in coords:
+        key = m['name']
+        C = m['coords']
+        
+        for i, p in enumerate(A):
+            if key in DATA[i]:
+                continue
+            p.draw(screen, C)
+            
+            x = raw_input(key + '? ')
+            if x == 'q' or x=='Q':
+                quit = True
+                break
+            elif x=='l':
+                x = prev
+            elif x=='?':
+                continue
+            DATA[i][key] = x
+            prev = x
+        if quit:
+            break
+
+    yaml.dump(DATA, open(dfilename, 'w'))
