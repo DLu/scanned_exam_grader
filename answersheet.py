@@ -4,6 +4,7 @@ import pygame, tempfile
 import yaml
 import argparse
 import os
+from util import *
 
 DENSITY = 200
 W = 800
@@ -38,13 +39,13 @@ class Answers:
         
         
 
-
 parser = argparse.ArgumentParser(description='Answer Sheet Reader')
-parser.add_argument('pdf_files', nargs='+')
-
+parser.add_argument('folder')
 args = parser.parse_args()
 
-coords = yaml.load(open('coords.yaml'))
+files = sort_files(args.folder)
+
+coords = yaml.load(open( files['coords'][0] ))
 pygame.init()    
 screen = pygame.display.set_mode((W, H))
 
@@ -52,7 +53,7 @@ quit = False
 prev = None
 
 
-for fn in args.pdf_files:
+for fn in files['pdfs']:
     A = load_answers(fn)
 
     dfilename = fn + '.yaml'
