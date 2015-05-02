@@ -45,13 +45,16 @@ args = parser.parse_args()
 
 files = sort_files(args.folder)
 
-coords = yaml.load(open( files['coords'][0] ))
+page_coords = []
+for fn in files['coords']:
+    coords = yaml.load(open( fn ))
+    page_coords.append(coords)
+    
 pygame.init()    
 screen = pygame.display.set_mode((W, H))
 
 quit = False
 prev = None
-
 
 for fn in files['pdfs']:
     A = load_answers(fn)
@@ -61,29 +64,33 @@ for fn in files['pdfs']:
         DATA = yaml.load(open(dfilename))
     else:
         DATA = []
-        for i in range(len(A)):
+        for i in range(len(A)/len(page_coords)):
             DATA.append({})
 
-    for m in coords:
-        key = m['name']
-        C = m['coords']
-        
-        for i, p in enumerate(A):
-            if key in DATA[i]:
-                continue
-            p.draw(screen, C)
+    for page_no, coords in enumerate(page_coords):
+        for m in coords:
+            key = m['name']
+            C = m['coords']
             
-            x = raw_input(key + '? ')
-            if x == 'q' or x=='Q':
-                quit = True
+            for i in range(len(DATA)):
+                if key in DATA[i]:
+                    continue
+                p = A[ i*len(page_coords) + page_no ]
+                p.draw(screen, C)
+                
+                x = raw_input(str(key) + '? ')
+                if x == 'q' or x=='Q':
+                    quit = True
+                    break
+                elif x=='l':
+                    x = prev
+                elif x=='?':
+                    continue
+                DATA[i][key] = x
+                prev = x
+            if quit:
                 break
-            elif x=='l':
-                x = prev
-            elif x=='?':
-                continue
-            DATA[i][key] = x
-            prev = x
         if quit:
-            break
+            break        
 
     yaml.dump(DATA, open(dfilename, 'w'))
