@@ -6,15 +6,15 @@ def sort_files(folder):
     for f in sorted(os.listdir(folder)):
         full = folder + '/' + f
         parts = os.path.splitext(f)
-        if parts[-1]=='.pdf':
+        if parts[-1] == '.pdf':
             X['pdfs'].append(full)
-        elif parts[-1]=='.yaml':
+        elif parts[-1] == '.yaml':
             if 'coords' in f:
                 X['coords'].append(full)
             else:
                 X['yaml'].append(full)
-        elif f[0]=='.':
-            continue        
+        elif f[0] == '.':
+            continue
         else:
-            print "UNKNOWN", f                
+            print "UNKNOWN", f
     return X
