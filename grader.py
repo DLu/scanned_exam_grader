@@ -1,74 +1,115 @@
-import sys
+import os
 import yaml
+import argparse
+import collections
+from util import sort_files
 
-TEST = 'a'
-DATA = []
-for x in sys.argv[1:]:
-    DATA += yaml.load(open(x))
-CORRECT = yaml.load(open('%s_answers.yaml' % TEST))
-POINTS = yaml.load(open('points.yaml'))
+def print_unique_answers(data):
+    answers = collections.defaultdict(lambda: collections.defaultdict(int))
+    for a in data:
+        for k, v in a.iteritems():
+            if k == 'NAME':
+                continue
+            answers[k][v] += 1
 
-results = yaml.load(open('results.yaml'))
+    for key in sorted(answers):
+        print key
+        for ans, n in sorted(answers[key].items(), key=lambda d: d[1], reverse=True):
+            print '%03d %s' % (n, ans)
+        print
 
-for answers in DATA:
-    name = answers['NAME']
-    M = results.get(name, {})
+def interpret_value(value, correct_a):
+    numerical = type(correct_a) == float or type(correct_a) == int
+    if numerical and len(value) > 0:
+        try:
+            value = eval(value)
+        except:
+            pass
+    return value
 
-    pts = 0.0
-    total = 0.0
+def grade_answers(student_answers, correct, results, points):
+    for student in student_answers:
+        name = student['NAME']
+        if name not in results:
+            results[name] = {}
 
-    for key, value in sorted(CORRECT.items()):
-        if key not in answers:
-            continue
-        if key in M:
-            pts += M[key] * POINTS[key]
-            total += POINTS[key]
-            continue
-        a = answers[key]
-        numerical = type(value) == float or type(value) == int
-        if numerical and len(a) > 0:
-            a = eval(a)
+    for key, correct_a in sorted(correct.items()):
+        incorrect_points = {}
+        question_points = points[key]
+        for student in student_answers:
+            M = results[student['NAME']]
+            if key not in student:
+                continue
 
-        if type(a) == str and len(a) == 0:
-            M[key] = 0.0
-        elif a == value:
-            M[key] = 1.0
-        elif numerical:
-            if '1' in key and round(value, 1) == round(a, 1):
+            answer = interpret_value(student[key], correct_a)
+            if key in M:
+                incorrect_points[answer] = M[key]
+                continue
+
+            if type(answer) == str and len(answer) == 0:
+                M[key] = 0.0
+            elif answer == correct_a:
                 M[key] = 1.0
-            elif '5' in key and round(value, 2) == round(a, 2):
-                M[key] = 1.0
-            elif key == '4f' and round(value, 2) == round(a, 2):
-                M[key] = 1.0
+            elif answer in incorrect_points:
+                M[key] = incorrect_points[answer]
             else:
-                print key, a, value
+                # TODO: Reimplement rounding logic
+                print 'Question ' + str(key), '(%d points)' % question_points
+                print 'Answer:  ' + str(answer)
+                print 'Correct: ' + str(correct_a)
                 x = raw_input()
-                if len(x) > 0:
-                    M[key] = float(x)
-                else:
+                if len(x) == 0:
                     continue
+                if '%' in x:
+                    M[key] = float(x.replace('%', '')) / 100.0
+                else:
+                    M[key] = float(x) / question_points
+                incorrect_points[answer] = M[key]
 
-        elif key == '3e':
-            X = {'A': 0.5, 'D': 0.5, 'ACD': 0.5, 'AC': 0.5}
-            if a in X:
-                M[key] = X[a]
-            else:
-                print '3e: ~~~ ', a
-                continue
-        else:
-            print key, a, value
-            x = raw_input()
-            if len(x) > 0:
-                M[key] = float(x)
-            else:
-                continue
-        pts += M[key] * POINTS[key]
-        total += POINTS[key]
+def print_grades(results, points):
+    totals = {}
+    for name, student in results.iteritems():
+        pts = 0.0
+        total = 0.0
+        for key in points:
+            pts += student.get(key, 0.0) * points[key]
+            total += points[key]
+        totals[name] = pts
+    for name, total in sorted(totals.items(), key=lambda d: d[1], reverse=True):
+        print "%30s %.1f" % (name, total)
 
-    print "%30s %.1f %.0f %.0f" % (name, pts * 100 / total, pts, total)
-    results[name] = M
 
-yaml.dump(results, open('results.yaml', 'w'))
+parser = argparse.ArgumentParser(description='Grader')
+parser.add_argument('folder')
+args = parser.parse_args()
+
+files = sort_files(args.folder)
+
+DATA = []
+for x in files['yaml']:
+    if 'answers' in x or 'points' in x or 'results' in x:
+        continue
+    DATA += yaml.load(open(x))
+
+CORRECT = yaml.load(open(os.path.join(args.folder, 'answers.yaml')))
+POINTS = yaml.load(open(os.path.join(args.folder, 'points.yaml')))
+r_fn = os.path.join(args.folder, 'results.yaml')
+if os.path.exists(r_fn):
+    results = yaml.load(open(r_fn))
+else:
+    results = {}
+rules_fn = os.path.join(args.folder, 'rules.yaml')
+if os.path.exists(rules_fn):
+    rules = yaml.load(open(rules_fn))
+else:
+    rules = {}
+
+print_unique_answers(DATA)
+try:
+    grade_answers(DATA, CORRECT, results, POINTS)
+finally:
+    yaml.dump(results, open(r_fn, 'w'))
+print_grades(results, POINTS)
 
 N = 40
 for key in sorted(POINTS):

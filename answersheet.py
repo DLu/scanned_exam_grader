@@ -8,14 +8,15 @@ import os
 from util import sort_files
 
 DENSITY = 200
-W = 800
-H = 300
+W = 1600
+H = 500
 
 def load_answers(filename):
     input1 = PdfFileReader(file(filename))
     n = input1.getNumPages()
     a = []
     for i in range(n):
+        print i, n
         a.append(Answers(filename, i))
     return a
 
@@ -63,8 +64,8 @@ for fn in files['pdfs']:
         DATA = yaml.load(open(dfilename))
     else:
         DATA = []
-        for i in range(len(A) / len(page_coords)):
-            DATA.append({})
+    while len(DATA) < len(A):
+        DATA.append({})
 
     for page_no, coords in enumerate(page_coords):
         for m in coords:
